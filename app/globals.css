@@ -365,3 +365,12 @@ h1 {
   cursor: default;
 }
 .meta-icon { font-size: 0.7rem; }
+
+/* ===== Počítadlo výsledků ===== */
+.result-count {
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 0.5rem 0.9rem; border-radius: 12px;
+  font-size: 0.8rem; color: var(--text-dim);
+  white-space: nowrap; cursor: default;
+}
+.result-count b { color: var(--text); }

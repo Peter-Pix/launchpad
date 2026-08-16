@@ -368,6 +368,9 @@ export default function Home() {
             <button className="search-clear" onClick={() => setSearchQuery('')} title="Vymazat">✕</button>
           )}
         </div>
+        <div className="result-count" title="Počet aplikací odpovídajících aktuálním filtrům">
+          <b>{filteredApps.length}</b> z {apps.length}
+        </div>
         <div className="search-filters">
           <select
             className="filter-select"
