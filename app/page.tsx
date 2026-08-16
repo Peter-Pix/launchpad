@@ -73,6 +73,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'az' | 'lastCommit' | 'createdAt'>('az');
   const [frameworkFilter, setFrameworkFilter] = useState<'all' | 'next' | 'vite' | 'other'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'running' | 'offline'>('all');
   const [omnibarOpen, setOmnibarOpen] = useState(false);
   const [omnibarQuery, setOmnibarQuery] = useState('');
 
@@ -288,6 +289,7 @@ export default function Home() {
   const filteredApps = apps
     .filter((a) => activeTag === 'all' || a.tags.includes(activeTag))
     .filter((a) => frameworkFilter === 'all' || a.framework === frameworkFilter)
+    .filter((a) => statusFilter === 'all' || (statusFilter === 'running' ? a.running : !a.running))
     .filter((a) => !q || (a.name + ' ' + a.dir + ' ' + a.tags.join(' ')).toLowerCase().includes(q))
     .sort((a, b) => {
       if (sortBy === 'lastCommit') return (b.lastCommit ?? 0) - (a.lastCommit ?? 0);
@@ -377,6 +379,16 @@ export default function Home() {
             <option value="next">Next.js</option>
             <option value="vite">Vite</option>
             <option value="other">Other</option>
+          </select>
+          <select
+            className="filter-select"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            title="Filtr podle stavu"
+          >
+            <option value="all">Stav: vše</option>
+            <option value="running">Běží</option>
+            <option value="offline">Offline</option>
           </select>
           <select
             className="filter-select"
