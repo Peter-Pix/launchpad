@@ -18,11 +18,17 @@ export interface AppInfo {
 
 const PROJECTS_ROOT = process.env.LAUNCHPAD_ROOT || join(process.env.HOME || '', 'projects');
 
-/** Zjistí, jestli běží dev proces pro daný adresář (podle cesty v command line). */
+/**
+ * Zjistí, jestli běží dev proces pro daný adresář.
+ * Používá `[d]ir` regex trik, aby se grep neshodoval sám se sebou
+ * (command line execSync obsahuje dir, což by jinak dalo falešný pozitiv).
+ */
 function isAppRunning(dir: string): boolean {
+  const escaped = dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = escaped.replace(/^./, (c) => `[${c}]`);
   try {
     const out = execSync(
-      `ps aux | grep -iE "next|vite|node|tsx" | grep -v grep | grep -F "${dir}"`,
+      `ps aux | grep -iE "next|vite|node|tsx" | grep -v grep | grep -E "${pattern}"`,
       { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }
     );
     return out.trim().length > 0;

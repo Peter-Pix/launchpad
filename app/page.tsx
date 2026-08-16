@@ -33,7 +33,7 @@ export default function Home() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [starting, setStarting] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null); // dir aplikace, se kterou se pracuje
 
   const load = useCallback(async () => {
     try {
@@ -57,7 +57,7 @@ export default function Home() {
   }, [load]);
 
   const startApp = async (app: AppInfo) => {
-    setStarting(app.id);
+    setBusy(app.id);
     try {
       const res = await fetch('/api/apps/start', {
         method: 'POST',
@@ -68,12 +68,32 @@ export default function Home() {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || `HTTP ${res.status}`);
       }
-      // Počkat chvíli na start, pak refresh
       setTimeout(load, 3000);
     } catch (e: any) {
       alert(`Chyba při startu: ${e.message}`);
     } finally {
-      setStarting(null);
+      setBusy(null);
+    }
+  };
+
+  const killApp = async (app: AppInfo) => {
+    if (!confirm(`Zastavit aplikaci "${app.name}"?`)) return;
+    setBusy(app.id);
+    try {
+      const res = await fetch('/api/apps/kill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dir: app.dir }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `HTTP ${res.status}`);
+      }
+      setTimeout(load, 2000);
+    } catch (e: any) {
+      alert(`Chyba při zastavení: ${e.message}`);
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -136,17 +156,27 @@ export default function Home() {
 
                 <div className="card-actions">
                   {app.running && app.url ? (
-                    <a className="btn primary" href={app.url} target="_blank" rel="noopener noreferrer">
-                      Otevřít ↗
-                    </a>
+                    <>
+                      <a className="btn primary" href={app.url} target="_blank" rel="noopener noreferrer">
+                        Otevřít ↗
+                      </a>
+                      <button
+                        className="btn danger"
+                        onClick={() => killApp(app)}
+                        disabled={busy === app.id}
+                        title="Zastavit aplikaci"
+                      >
+                        {busy === app.id ? '…' : '✕ Kill'}
+                      </button>
+                    </>
                   ) : (
                     <button
                       className="btn primary"
                       onClick={() => startApp(app)}
-                      disabled={starting === app.id || app.portConflict}
+                      disabled={busy === app.id || app.portConflict}
                       title={app.portConflict ? 'Port je obsazený' : 'Spustit aplikaci'}
                     >
-                      {starting === app.id ? 'Spouštím…' : '▶ Spustit'}
+                      {busy === app.id ? 'Spouštím…' : '▶ Spustit'}
                     </button>
                   )}
                 </div>
