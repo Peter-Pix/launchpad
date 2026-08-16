@@ -13,7 +13,7 @@ export interface AppInfo {
   running: boolean;
   url: string | null;
   hasPackageJson: boolean;
-  portConflict: boolean; // port je obsazený jinou běžící aplikací
+  portConflict: boolean;
 }
 
 const PROJECTS_ROOT = process.env.LAUNCHPAD_ROOT || join(process.env.HOME || '', 'projects');
@@ -43,7 +43,7 @@ function isPortBusy(port: number): boolean {
 
 /** Vytáhne port z dev scriptu (např. "next dev -p 8888" → 8888). */
 function portFromScript(script: string): number | null {
-  const m = script.match(/(?:-p|--port)\s+(\d+)/);
+  const m = script.match(/(?:-p|--port)[= ](\d+)/);
   return m ? parseInt(m[1], 10) : null;
 }
 
@@ -74,8 +74,8 @@ export function discoverApps(): AppInfo[] {
     const devScript = pkg.scripts?.dev || '';
     const framework = detectFramework(pkg);
     const configuredPort = portFromScript(devScript);
-    // Vite default 5173, Next default 3000
-    const port = configuredPort ?? (framework === 'vite' ? 5173 : framework === 'next' ? 3000 : null);
+    // Priorita: launchpad.port (explicitní) > port z dev scriptu > framework default
+    const port = pkg.launchpad?.port ?? configuredPort ?? (framework === 'vite' ? 5173 : framework === 'next' ? 3000 : null);
     const running = isAppRunning(dir);
     const portConflict = !running && port !== null && isPortBusy(port);
 
