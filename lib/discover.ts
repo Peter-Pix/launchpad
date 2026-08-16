@@ -11,9 +11,13 @@ export interface AppInfo {
   devScript: string;
   port: number | null;
   running: boolean;
+  healthy: boolean | null; // null = neznámý (neběží / bez portu)
   url: string | null;
   hasPackageJson: boolean;
   portConflict: boolean;
+  icon: string | null;      // emoji nebo URL
+  tags: string[];           // kategorie
+  workspaces: string[];     // názvy workspace, do kterých patří
 }
 
 const PROJECTS_ROOT = process.env.LAUNCHPAD_ROOT || join(process.env.HOME || '', 'projects');
@@ -65,6 +69,20 @@ function detectFramework(pkg: any): AppInfo['framework'] {
   return 'other';
 }
 
+/** Rychlý HTTP health-check — vrátí true, pokud server odpoví 2xx/3xx. */
+function checkHealth(url: string): boolean {
+  try {
+    const out = execSync(
+      `curl -s -o /dev/null -w "%{http_code}" --max-time 2 "${url}"`,
+      { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 }
+    );
+    const code = parseInt(out.trim(), 10);
+    return !isNaN(code) && code >= 200 && code < 400;
+  } catch {
+    return false;
+  }
+}
+
 export function discoverApps(): AppInfo[] {
   if (!existsSync(PROJECTS_ROOT)) return [];
 
@@ -92,6 +110,18 @@ export function discoverApps(): AppInfo[] {
     const port = pkg.launchpad?.port ?? configuredPort ?? (framework === 'vite' ? 5173 : framework === 'next' ? 3000 : null);
     const running = runningDirs.has(dir);
     const portConflict = !running && port !== null && busyPorts.has(port);
+    const url = port !== null ? `http://localhost:${port}` : null;
+
+    // Health-check jen pro běžící aplikace s portem (neblokuje discovery)
+    let healthy: boolean | null = null;
+    if (running && url) {
+      healthy = checkHealth(url);
+    }
+
+    // Launchpad-specific metadata z package.json
+    const lp = pkg.launchpad || {};
+    const tags = Array.isArray(lp.tags) ? lp.tags.map(String) : [];
+    const workspaces = Array.isArray(lp.workspaces) ? lp.workspaces.map(String) : [];
 
     apps.push({
       id: dir,
@@ -102,9 +132,13 @@ export function discoverApps(): AppInfo[] {
       devScript,
       port,
       running,
-      url: port !== null ? `http://localhost:${port}` : null,
+      healthy,
+      url,
       hasPackageJson: true,
       portConflict,
+      icon: typeof lp.icon === 'string' ? lp.icon : null,
+      tags,
+      workspaces,
     });
   }
 
