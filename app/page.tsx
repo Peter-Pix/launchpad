@@ -29,11 +29,22 @@ const FRAMEWORK_LABEL: Record<AppInfo['framework'], string> = {
   other: 'App',
 };
 
+const AUTO_OPEN_KEY = 'launchpad.autoOpen';
+
 export default function Home() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null); // dir aplikace, se kterou se pracuje
+  const [autoOpen, setAutoOpen] = useState<boolean>(true);
+
+  // Načti nastavení auto-otevření z localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(AUTO_OPEN_KEY);
+      if (stored !== null) setAutoOpen(stored === 'true');
+    } catch {}
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -56,6 +67,14 @@ export default function Home() {
     return () => clearInterval(t);
   }, [load]);
 
+  const toggleAutoOpen = () => {
+    setAutoOpen((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(AUTO_OPEN_KEY, String(next)); } catch {}
+      return next;
+    });
+  };
+
   const startApp = async (app: AppInfo) => {
     setBusy(app.id);
     try {
@@ -68,7 +87,13 @@ export default function Home() {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || `HTTP ${res.status}`);
       }
-      setTimeout(load, 3000);
+      const j = await res.json().catch(() => ({}));
+      // Auto-otevření v nové kartě (pokud je povoleno a známe URL)
+      if (autoOpen && app.url) {
+        window.open(app.url, '_blank', 'noopener,noreferrer');
+      }
+      // Okamžitý refresh, aby se odkaz "Otevřít ↗" objevil hned
+      setTimeout(load, 1500);
     } catch (e: any) {
       alert(`Chyba při startu: ${e.message}`);
     } finally {
@@ -113,6 +138,15 @@ export default function Home() {
           {conflictCount > 0 && (
             <span className="stat-pill"><b style={{ color: 'var(--amber)' }}>{conflictCount}</b> konflikt portu</span>
           )}
+          <label className="settings-toggle" title="Po spuštění aplikace ji automaticky otevřít v nové kartě">
+            <span className="settings-label">Auto-otevřít</span>
+            <input
+              type="checkbox"
+              checked={autoOpen}
+              onChange={toggleAutoOpen}
+            />
+            <span className="toggle-track"><span className="toggle-thumb" /></span>
+          </label>
           <button className="btn" onClick={load} style={{ flex: 'none', padding: '0.4rem 0.9rem' }}>↻ Obnovit</button>
         </div>
       </header>
