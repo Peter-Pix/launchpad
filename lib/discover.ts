@@ -18,33 +18,37 @@ export interface AppInfo {
 
 const PROJECTS_ROOT = process.env.LAUNCHPAD_ROOT || join(process.env.HOME || '', 'projects');
 
-/**
- * Zjistí, jestli běží dev proces pro daný adresář.
- * Používá `[d]ir` regex trik, aby se grep neshodoval sám se sebou
- * (command line execSync obsahuje dir, což by jinak dalo falešný pozitiv).
- */
-function isAppRunning(dir: string): boolean {
-  const escaped = dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = escaped.replace(/^./, (c) => `[${c}]`);
+/** Získá seznam běžících dev procesů JEDNÍM voláním ps aux. */
+function getRunningDirs(): Set<string> {
+  const running = new Set<string>();
   try {
     const out = execSync(
-      `ps aux | grep -iE "next|vite|node|tsx" | grep -v grep | grep -E "${pattern}"`,
-      { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }
+      `ps aux | grep -iE "next|vite|node|tsx" | grep -v grep`,
+      { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 10 * 1024 * 1024 }
     );
-    return out.trim().length > 0;
-  } catch {
-    return false;
-  }
+    const root = PROJECTS_ROOT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    for (const line of out.split('\n')) {
+      const m = line.match(new RegExp(`${root}/([^/\\s]+)`));
+      if (m) running.add(m[1]);
+    }
+  } catch {}
+  return running;
 }
 
-/** Zjistí, jestli port naslouchá (kýmkoliv). */
-function isPortBusy(port: number): boolean {
+/** Získá Set obsazených portů JEDNÍM voláním lsof. */
+function getBusyPorts(): Set<number> {
+  const busy = new Set<number>();
   try {
-    execSync(`lsof -iTCP:${port} -sTCP:LISTEN -P -n 2>/dev/null | grep -q LISTEN`, { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
+    const out = execSync(
+      `lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '{print $9}' | grep -oE '[0-9]+$'`,
+      { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 5 * 1024 * 1024 }
+    );
+    for (const line of out.split('\n')) {
+      const p = parseInt(line, 10);
+      if (!isNaN(p)) busy.add(p);
+    }
+  } catch {}
+  return busy;
 }
 
 /** Vytáhne port z dev scriptu (např. "next dev -p 8888" → 8888). */
@@ -64,6 +68,10 @@ function detectFramework(pkg: any): AppInfo['framework'] {
 export function discoverApps(): AppInfo[] {
   if (!existsSync(PROJECTS_ROOT)) return [];
 
+  // Jedno volání ps aux + jedno lsof pro všechny aplikace
+  const runningDirs = getRunningDirs();
+  const busyPorts = getBusyPorts();
+
   const apps: AppInfo[] = [];
   for (const dir of readdirSync(PROJECTS_ROOT)) {
     const full = join(PROJECTS_ROOT, dir);
@@ -82,8 +90,8 @@ export function discoverApps(): AppInfo[] {
     const configuredPort = portFromScript(devScript);
     // Priorita: launchpad.port (explicitní) > port z dev scriptu > framework default
     const port = pkg.launchpad?.port ?? configuredPort ?? (framework === 'vite' ? 5173 : framework === 'next' ? 3000 : null);
-    const running = isAppRunning(dir);
-    const portConflict = !running && port !== null && isPortBusy(port);
+    const running = runningDirs.has(dir);
+    const portConflict = !running && port !== null && busyPorts.has(port);
 
     apps.push({
       id: dir,
