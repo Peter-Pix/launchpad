@@ -1,0 +1,19 @@
+
+> launchpad@0.1.0 dev
+> next dev -p 3005
+
+▲ Next.js 16.3.1 (Turbopack)
+- Local:         http://localhost:3005
+- Network:       http://192.168.1.152:3005
+✓ Ready in 321ms
+⚠ Warning: Next.js ignored package-lock.json in /Users because it is outside the current Git repository (/Users/petrpiskacek/projects/launchpad).
+ To use this directory, set `turbopack.root` in your Next.js config.
+
+✓ Running next.config.ts took 21ms
+
+ GET / 200 in 236ms (next.js: 144ms, application-code: 92ms)
+ GET /api/apps 200 in 1109ms (next.js: 41ms, application-code: 1069ms)
+ GET /api/apps 200 in 2.0s (next.js: 1109ms, application-code: 907ms)
+ GET /api/apps 200 in 879ms (next.js: 1.1ms, application-code: 878ms)
+ GET / 200 in 17ms (next.js: 1.3ms, application-code: 15ms)
+ GET /api/apps 200 in 966ms (next.js: 5ms, application-code: 962ms)

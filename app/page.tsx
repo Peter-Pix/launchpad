@@ -19,6 +19,8 @@ interface AppInfo {
   icon: string | null;
   tags: string[];
   workspaces: string[];
+  lastCommit: number | null;
+  createdAt: number | null;
 }
 
 interface ApiResponse {
@@ -50,6 +52,9 @@ export default function Home() {
   const [busy, setBusy] = useState<string | null>(null);
   const [autoOpen, setAutoOpen] = useState<boolean>(true);
   const [activeTag, setActiveTag] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'az' | 'lastCommit' | 'createdAt'>('az');
+  const [frameworkFilter, setFrameworkFilter] = useState<'all' | 'next' | 'vite' | 'other'>('all');
   const [omnibarOpen, setOmnibarOpen] = useState(false);
   const [omnibarQuery, setOmnibarQuery] = useState('');
 
@@ -257,9 +262,20 @@ export default function Home() {
   // Derived data
   const apps = data?.apps ?? [];
   const allTags = Array.from(new Set(apps.flatMap((a) => a.tags))).sort();
-  const filteredApps = activeTag === 'all' ? apps : apps.filter((a) => a.tags.includes(activeTag));
   const runningCount = apps.filter((a) => a.running).length ?? 0;
   const conflictCount = apps.filter((a) => a.portConflict).length ?? 0;
+
+  // Live hledání + filtry
+  const q = searchQuery.trim().toLowerCase();
+  const filteredApps = apps
+    .filter((a) => activeTag === 'all' || a.tags.includes(activeTag))
+    .filter((a) => frameworkFilter === 'all' || a.framework === frameworkFilter)
+    .filter((a) => !q || (a.name + ' ' + a.dir + ' ' + a.tags.join(' ')).toLowerCase().includes(q))
+    .sort((a, b) => {
+      if (sortBy === 'lastCommit') return (b.lastCommit ?? 0) - (a.lastCommit ?? 0);
+      if (sortBy === 'createdAt') return (b.createdAt ?? 0) - (a.createdAt ?? 0);
+      return a.name.localeCompare(b.name);
+    });
 
   const workspaceNames = Array.from(new Set(apps.flatMap((a) => a.workspaces))).sort();
   const workspaceApps = (name: string) => apps.filter((a) => a.workspaces.includes(name));
@@ -316,6 +332,46 @@ export default function Home() {
           <button className="btn" onClick={load} style={{ flex: 'none', padding: '0.4rem 0.9rem' }}>↻ Obnovit</button>
         </div>
       </header>
+
+      {/* Live hledání + filtry */}
+      <div className="search-bar">
+        <div className="search-input-wrap">
+          <span className="search-icon">🔍</span>
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Hledat projekt… (název, adresář, tag)"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button className="search-clear" onClick={() => setSearchQuery('')} title="Vymazat">✕</button>
+          )}
+        </div>
+        <div className="search-filters">
+          <select
+            className="filter-select"
+            value={frameworkFilter}
+            onChange={(e) => setFrameworkFilter(e.target.value as any)}
+            title="Filtr podle frameworku"
+          >
+            <option value="all">Framework: vše</option>
+            <option value="next">Next.js</option>
+            <option value="vite">Vite</option>
+            <option value="other">Other</option>
+          </select>
+          <select
+            className="filter-select"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            title="Řazení"
+          >
+            <option value="az">A–Z</option>
+            <option value="lastCommit">Poslední commit</option>
+            <option value="createdAt">Datum vytvoření</option>
+          </select>
+        </div>
+      </div>
 
       {allTags.length > 0 && (
         <div className="tag-bar">

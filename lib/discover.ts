@@ -20,6 +20,8 @@ export interface AppInfo {
   workspaces: string[];
   healthPath: string | null;
   healthExpected: number[];
+  lastCommit: number | null; // unix timestamp posledního commitu
+  createdAt: number | null;   // unix timestamp prvního commitu
 }
 
 const PROJECTS_ROOT = process.env.LAUNCHPAD_ROOT || join(process.env.HOME || '', 'projects');
@@ -55,6 +57,22 @@ function getBusyPorts(): Set<number> {
     }
   } catch {}
   return busy;
+}
+
+
+/** Získá last commit a created at (první commit) pro projekt jedním git log voláním. */
+function getGitTimestamps(dir: string): { lastCommit: number | null; createdAt: number | null } {
+  try {
+    const out = execSync(
+      `git -C "${dir}" log --format="%ct" 2>/dev/null`,
+      { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 2 * 1024 * 1024 }
+    );
+    const lines = out.trim().split('\n').filter(Boolean).map(Number).filter((n) => !isNaN(n));
+    if (lines.length === 0) return { lastCommit: null, createdAt: null };
+    return { lastCommit: lines[0], createdAt: lines[lines.length - 1] };
+  } catch {
+    return { lastCommit: null, createdAt: null };
+  }
 }
 
 function portFromScript(script: string): number | null {
@@ -111,6 +129,9 @@ export function discoverApps(): AppInfo[] {
     const healthPath = typeof lp.healthPath === 'string' ? lp.healthPath : null;
     const healthExpected = normalizeExpected(lp.healthExpected);
 
+    // Git metadata (last commit + created at) — jedno volání na projekt
+    const { lastCommit, createdAt } = getGitTimestamps(full);
+
     apps.push({
       id: dir,
       name: pkg.name || dir,
@@ -129,6 +150,8 @@ export function discoverApps(): AppInfo[] {
       workspaces,
       healthPath,
       healthExpected,
+      lastCommit,
+      createdAt,
     });
   }
 
