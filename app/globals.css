@@ -352,3 +352,16 @@ h1 {
 }
 .filter-select:hover, .filter-select:focus { border-color: rgba(255,255,255,0.25); }
 .filter-select option { background: var(--surface); color: var(--text); }
+
+/* ===== Relativní čas na kartě ===== */
+.card-meta {
+  display: flex; gap: 0.75rem; flex-wrap: wrap;
+  font-size: 0.72rem; color: var(--text-dim);
+}
+.meta-item {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  padding: 0.15rem 0.5rem; border-radius: 999px;
+  cursor: default;
+}
+.meta-icon { font-size: 0.7rem; }

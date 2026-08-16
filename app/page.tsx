@@ -36,6 +36,24 @@ const FRAMEWORK_LABEL: Record<AppInfo['framework'], string> = {
   other: 'App',
 };
 
+
+function formatRelativeTime(ts: number | null): string | null {
+  if (!ts) return null;
+  const diff = Date.now() / 1000 - ts;
+  if (diff < 60) return 'právě teď';
+  if (diff < 3600) return `před ${Math.floor(diff / 60)} min`;
+  if (diff < 86400) return `před ${Math.floor(diff / 3600)} h`;
+  if (diff < 604800) return `před ${Math.floor(diff / 86400)} d`;
+  if (diff < 2592000) return `před ${Math.floor(diff / 604800)} týd`;
+  if (diff < 31536000) return `před ${Math.floor(diff / 2592000)} měs`;
+  return `před ${Math.floor(diff / 31536000)} r`;
+}
+
+function formatDate(ts: number | null): string {
+  if (!ts) return '—';
+  return new Date(ts * 1000).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 const AUTO_OPEN_KEY = 'launch…Open';
 
 interface LogEntry {
@@ -444,6 +462,21 @@ export default function Home() {
                   </span>
                   {app.port && <span className="port">:{app.port}</span>}
                 </div>
+
+                {(app.lastCommit || app.createdAt) && (
+                  <div className="card-meta">
+                    {app.lastCommit && (
+                      <span className="meta-item" title={`Poslední commit: ${formatDate(app.lastCommit)}`}>
+                        <span className="meta-icon">🕒</span> commit {formatRelativeTime(app.lastCommit)}
+                      </span>
+                    )}
+                    {app.createdAt && (
+                      <span className="meta-item" title={`Vytvořeno: ${formatDate(app.createdAt)}`}>
+                        <span className="meta-icon">📅</span> {formatRelativeTime(app.createdAt)}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {app.tags.length > 0 && (
                   <div className="card-tags">

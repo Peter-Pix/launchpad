@@ -17,3 +17,16 @@
  GET /api/apps 200 in 879ms (next.js: 1.1ms, application-code: 878ms)
  GET / 200 in 17ms (next.js: 1.3ms, application-code: 15ms)
  GET /api/apps 200 in 966ms (next.js: 5ms, application-code: 962ms)
+ GET /api/apps 200 in 2.3s (next.js: 16ms, application-code: 2.3s)
+ GET /api/apps 200 in 1648ms (next.js: 3ms, application-code: 1645ms)
+ GET /api/apps 200 in 2.2s (next.js: 4ms, application-code: 2.2s)
+ GET /api/apps 200 in 920ms (next.js: 1.2ms, application-code: 919ms)
+ GET /api/apps 200 in 942ms (next.js: 4ms, application-code: 938ms)
+ GET / 200 in 31ms (next.js: 9ms, application-code: 23ms)
+✓ Compiled in 23ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /api/apps 200 in 1302ms (next.js: 3ms, application-code: 1299ms)
+✓ Compiled in 17ms
+ GET /api/apps 200 in 1124ms (next.js: 5ms, application-code: 1119ms)
+ GET / 200 in 2.5s (next.js: 3ms, application-code: 2.5s)
+ GET /api/apps 200 in 4.2s (next.js: 4ms, application-code: 4.2s)
