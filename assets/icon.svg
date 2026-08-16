@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#0a0a1a"/>
+    </linearGradient>
+    <linearGradient id="rocket" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#9ad0f5"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4fc3f7"/>
+      <stop offset="100%" stop-color="#e0b34c"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="230" fill="url(#bg)"/>
+  <!-- glow -->
+  <circle cx="512" cy="512" r="380" fill="none" stroke="rgba(79,195,247,0.15)" stroke-width="40"/>
+  <!-- rocket body -->
+  <path d="M512 180 C 560 260, 600 340, 600 440 C 600 520, 560 580, 512 620 C 464 580, 424 520, 424 440 C 424 340, 464 260, 512 180 Z" fill="url(#rocket)"/>
+  <!-- window -->
+  <circle cx="512" cy="420" r="55" fill="#0a0a1a" stroke="#4fc3f7" stroke-width="12"/>
+  <circle cx="512" cy="420" r="28" fill="#4fc3f7"/>
+  <!-- fins -->
+  <path d="M424 500 L 360 620 L 440 600 Z" fill="#4fc3f7"/>
+  <path d="M600 500 L 664 620 L 584 600 Z" fill="#4fc3f7"/>
+  <!-- flame -->
+  <path d="M512 620 C 540 680, 560 720, 512 800 C 464 720, 484 680, 512 620 Z" fill="url(#flame)"/>
+</svg>
