@@ -11,13 +11,15 @@ export interface AppInfo {
   devScript: string;
   port: number | null;
   running: boolean;
-  healthy: boolean | null; // null = neznámý (neběží / bez portu)
+  healthy: boolean | null;
   url: string | null;
   hasPackageJson: boolean;
   portConflict: boolean;
-  icon: string | null;      // emoji nebo URL
-  tags: string[];           // kategorie
-  workspaces: string[];     // názvy workspace, do kterých patří
+  icon: string | null;
+  tags: string[];
+  workspaces: string[];
+  healthPath: string | null;
+  healthExpected: number[];
 }
 
 const PROJECTS_ROOT = process.env.LAUNCHPAD_ROOT || join(process.env.HOME || '', 'projects');
@@ -55,7 +57,6 @@ function getBusyPorts(): Set<number> {
   return busy;
 }
 
-/** Vytáhne port z dev scriptu (např. "next dev -p 8888" → 8888). */
 function portFromScript(script: string): number | null {
   const m = script.match(/(?:-p|--port)[= ](\d+)/);
   return m ? parseInt(m[1], 10) : null;
@@ -69,24 +70,16 @@ function detectFramework(pkg: any): AppInfo['framework'] {
   return 'other';
 }
 
-/** Rychlý HTTP health-check — vrátí true, pokud server odpoví 2xx/3xx. */
-function checkHealth(url: string): boolean {
-  try {
-    const out = execSync(
-      `curl -s -o /dev/null -w "%{http_code}" --max-time 2 "${url}"`,
-      { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 }
-    );
-    const code = parseInt(out.trim(), 10);
-    return !isNaN(code) && code >= 200 && code < 400;
-  } catch {
-    return false;
-  }
+function normalizeExpected(expected: unknown): number[] {
+  if (!expected) return [];
+  if (Array.isArray(expected)) return expected.filter((x) => typeof x === 'number') as number[];
+  if (typeof expected === 'number') return [expected];
+  return [];
 }
 
 export function discoverApps(): AppInfo[] {
   if (!existsSync(PROJECTS_ROOT)) return [];
 
-  // Jedno volání ps aux + jedno lsof pro všechny aplikace
   const runningDirs = getRunningDirs();
   const busyPorts = getBusyPorts();
 
@@ -106,22 +99,17 @@ export function discoverApps(): AppInfo[] {
     const devScript = pkg.scripts?.dev || '';
     const framework = detectFramework(pkg);
     const configuredPort = portFromScript(devScript);
-    // Priorita: launchpad.port (explicitní) > port z dev scriptu > framework default
     const port = pkg.launchpad?.port ?? configuredPort ?? (framework === 'vite' ? 5173 : framework === 'next' ? 3000 : null);
     const running = runningDirs.has(dir);
     const portConflict = !running && port !== null && busyPorts.has(port);
     const url = port !== null ? `http://localhost:${port}` : null;
 
-    // Health-check jen pro běžící aplikace s portem (neblokuje discovery)
-    let healthy: boolean | null = null;
-    if (running && url) {
-      healthy = checkHealth(url);
-    }
-
-    // Launchpad-specific metadata z package.json
     const lp = pkg.launchpad || {};
     const tags = Array.isArray(lp.tags) ? lp.tags.map(String) : [];
     const workspaces = Array.isArray(lp.workspaces) ? lp.workspaces.map(String) : [];
+    const icon = typeof lp.icon === 'string' ? lp.icon : null;
+    const healthPath = typeof lp.healthPath === 'string' ? lp.healthPath : null;
+    const healthExpected = normalizeExpected(lp.healthExpected);
 
     apps.push({
       id: dir,
@@ -132,19 +120,67 @@ export function discoverApps(): AppInfo[] {
       devScript,
       port,
       running,
-      healthy,
+      healthy: null,
       url,
       hasPackageJson: true,
       portConflict,
-      icon: typeof lp.icon === 'string' ? lp.icon : null,
+      icon,
       tags,
       workspaces,
+      healthPath,
+      healthExpected,
     });
   }
 
-  // Seřadit: běžící první, pak abecedně
   return apps.sort((a, b) => {
     if (a.running !== b.running) return a.running ? -1 : 1;
     return a.name.localeCompare(b.name);
   });
+}
+
+/** Defaultní health-check cesty podle frameworku. */
+export function getHealthPaths(port: number, framework: AppInfo['framework'], customPath: string | null): string[] {
+  if (customPath) return [customPath];
+  const defaults = ['/', '/api/health', '/health'];
+  if (framework === 'next') return ['/', '/api/health', '/health', '/_next/static/__development'];
+  if (framework === 'vite') return ['/', '/index.html', '/health'];
+  return defaults;
+}
+
+/** Asynchronní HTTP check — neblokuje event loop execSyncem. */
+async function fetchStatus(url: string, timeoutMs = 2000): Promise<number | null> {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ac.signal });
+    return res.status;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+export async function checkAppHealth(
+  port: number,
+  framework: AppInfo['framework'],
+  customPath: string | null,
+  expectedCodes: number[]
+): Promise<{ healthy: boolean; checks: { path: string; status: number | null }[] }> {
+  const paths = getHealthPaths(port, framework, customPath);
+  const checks: { path: string; status: number | null }[] = [];
+  let healthy = false;
+
+  for (const path of paths) {
+    const status = await fetchStatus(`http://127.0.0.1:${port}${path}`);
+    checks.push({ path, status });
+    // Jakýkoliv HTTP kód (kromě 0/null) znamená, že server naslouchá
+    if (status !== null && status !== 0) {
+      if (expectedCodes.length === 0 || expectedCodes.includes(status)) {
+        healthy = true;
+      }
+    }
+  }
+
+  return { healthy, checks };
 }

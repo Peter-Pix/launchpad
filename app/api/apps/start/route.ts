@@ -3,12 +3,16 @@ import { spawn } from 'child_process';
 import { existsSync, openSync } from 'fs';
 import { join } from 'path';
 import { discoverApps } from '@/lib/discover';
+import { assertLocalhost } from '@/lib/guard';
 
 export const dynamic = 'force-dynamic';
 
 const PROJECTS_ROOT = process.env.LAUNCHPAD_ROOT || join(process.env.HOME || '', 'projects');
 
 export async function POST(req: Request) {
+  const guard = assertLocalhost(req);
+  if (guard) return guard;
+
   let body: any = {};
   try { body = await req.json(); } catch {}
 
@@ -20,14 +24,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `Nenalezen package.json v ${dir}` }, { status: 404 });
   }
 
-  // Už běží?
   const apps = discoverApps();
   const app = apps.find((a) => a.dir === dir);
   if (app?.running) {
     return NextResponse.json({ ok: true, alreadyRunning: true, url: app.url });
   }
 
-  // Spustit dev server na pozadí, logy do souboru
   const logPath = join(appPath, '.launchpad.log');
   const logFd = openSync(logPath, 'a');
   const child = spawn('npm', ['run', 'dev'], {
