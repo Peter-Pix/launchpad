@@ -43,3 +43,5 @@ next-env.d.ts
 # launchpad
 .launchpad.log
 .launchpad-server.log
+launchpad.log
+*.log
