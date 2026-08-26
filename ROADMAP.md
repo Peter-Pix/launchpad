@@ -10,10 +10,10 @@ Zpevnit — řešit edge cases, které nastávají při reálném používání.
 
 ## Fáze
 
-### Fáze 1 — Robustnost (teď)
-- [ ] Konflikt portu: lépe detekovat i při restartu (stale port od zabitého procesu)
-- [ ] Error handling: co když `npm run dev` selže hned (chybí deps, špatný script)
-- [ ] Čištění mrtvých procesů: pokud aplikace skončila, ale port zůstal → kill
+### Fáze 1 — Robustnost (hotové)
+- [x] Konflikt portu: lépe detekovat i při restartu (stale port od zabitého procesu)
+- [x] Error handling: co když `npm run dev` selže hned (chybí deps, špatný script)
+- [x] Čištění mrtvých procesů: pokud aplikace skončila, ale port zůstal → kill
 
 ### Fáze 2 — UX (hotové + dolaď)
 - [x] Filtrování aplikací (podle frameworku / stavu běží)
