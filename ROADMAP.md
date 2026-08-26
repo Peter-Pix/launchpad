@@ -1,9 +1,9 @@
 # Launchpad — Roadmapa
 
-> Stav: Funkční rozcestník. Auto-discovery, status, spuštění, omnibar (Ctrl+K), workspaces, live logy.
+> Stav: Funkční rozcestník. Auto-discovery, status, spuštění, omnibar (Ctrl+K), workspaces, live logy, **konfigurovatelná cesta k projektům**.
 
 ## Co to je
-Centrální rozcestník pro všechny aplikace v `~/projects/`. Automaticky detekuje nové aplikace (package.json s dev scriptem).
+Centrální rozcestník pro všechny aplikace v zvoleném adresáři (default `~/projects`). Automaticky detekuje nové aplikace (package.json s dev scriptem).
 
 ## Cíl
 Zpevnit — řešit edge cases, které nastávají při reálném používání.
@@ -16,9 +16,10 @@ Zpevnit — řešit edge cases, které nastávají při reálném používání.
 - [ ] Čištění mrtvých procesů: pokud aplikace skončila, ale port zůstal → kill
 
 ### Fáze 2 — UX (hotové + dolaď)
-- [ ] Filtrování aplikací (podle frameworku / stavu běží)
-- [ ] Persistovat poslední spuštěné aplikace (rychlý restart)
-- [ ] Vyhledávání v Omnibaru: zvýraznit match
+- [x] Filtrování aplikací (podle frameworku / stavu běží)
+- [x] Persistovat poslední spuštěné aplikace (rychlý restart)
+- [x] Vyhledávání v Omnibaru: zvýraznit match
+- [x] **Konfigurovatelná cesta k projektům** (⚙️ ozubené kolečko → localStorage → query param `root`)
 
 ### Fáze 3 — Rozšíření (volitelné)
 - [ ] Workspace groups: uložit a spouštět sestavy aplikací jedním klikem
