@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
+import { getPortPid, isPidAlive, pidCwdMatches } from '@/lib/process';
 
 export interface AppInfo {
   id: string;
@@ -57,6 +58,16 @@ function getBusyPorts(): Set<number> {
   return busy;
 }
 
+/**
+ * Ověří, zda proces na daném portu patří danému adresáři (cwd match).
+ * Používá se jako fallback pro stale port detekci — jen pro aplikace,
+ * které nejsou detekované jako běžící, ale mají obsazený port.
+ */
+function portOwnedByDir(port: number, dir: string): boolean {
+  const pid = getPortPid(port);
+  if (pid === null || !isPidAlive(pid)) return false;
+  return pidCwdMatches(pid, dir);
+}
 
 /** Získá last commit a created at (první commit) pro projekt jedním git log voláním. */
 function getGitTimestamps(dir: string): { lastCommit: number | null; createdAt: number | null } {
@@ -116,7 +127,17 @@ export function discoverApps(root: string): AppInfo[] {
     const framework = detectFramework(pkg);
     const configuredPort = portFromScript(devScript);
     const port = pkg.launchpad?.port ?? configuredPort ?? (framework === 'vite' ? 5173 : framework === 'next' ? 3000 : null);
-    const running = runningDirs.has(dir);
+
+    // Rychlá detekce: proces v ps aux
+    let running = runningDirs.has(dir);
+
+    // Fallback pro stale port: pokud není detekovaný jako běžící, ale má
+    // obsazený port, ověříme, zda proces na portu patří tomuto adresáři.
+    // (Jen pro aplikace s obsazeným portem — vzácný případ, nezpomaluje běžný scénář)
+    if (!running && port !== null && busyPorts.has(port)) {
+      running = portOwnedByDir(port, full);
+    }
+
     const portConflict = !running && port !== null && busyPorts.has(port);
     const url = port !== null ? `http://localhost:${port}` : null;
 
