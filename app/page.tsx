@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { detectLevel, levelClass, type LogLevel } from '@/lib/log-level';
+import { translate, detectLang, LANG_KEY, type Lang } from '@/lib/i18n';
 
 interface AppInfo {
   id: string;
@@ -37,21 +38,21 @@ const FRAMEWORK_LABEL: Record<AppInfo['framework'], string> = {
 };
 
 
-function formatRelativeTime(ts: number | null): string | null {
+function formatRelativeTime(ts: number | null, lang: Lang): string | null {
   if (!ts) return null;
   const diff = Date.now() / 1000 - ts;
-  if (diff < 60) return 'právě teď';
-  if (diff < 3600) return `před ${Math.floor(diff / 60)} min`;
-  if (diff < 86400) return `před ${Math.floor(diff / 3600)} h`;
-  if (diff < 604800) return `před ${Math.floor(diff / 86400)} d`;
-  if (diff < 2592000) return `před ${Math.floor(diff / 604800)} týd`;
-  if (diff < 31536000) return `před ${Math.floor(diff / 2592000)} měs`;
-  return `před ${Math.floor(diff / 31536000)} r`;
+  if (diff < 60) return translate(lang, 'justNow');
+  if (diff < 3600) return translate(lang, 'minAgo', Math.floor(diff / 60));
+  if (diff < 86400) return translate(lang, 'hAgo', Math.floor(diff / 3600));
+  if (diff < 604800) return translate(lang, 'dAgo', Math.floor(diff / 86400));
+  if (diff < 2592000) return translate(lang, 'wAgo', Math.floor(diff / 604800));
+  if (diff < 31536000) return translate(lang, 'moAgo', Math.floor(diff / 2592000));
+  return translate(lang, 'yAgo', Math.floor(diff / 31536000));
 }
 
-function formatDate(ts: number | null): string {
+function formatDate(ts: number | null, lang: Lang): string {
   if (!ts) return '—';
-  return new Date(ts * 1000).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(ts * 1000).toLocaleDateString(lang === 'cs' ? 'cs-CZ' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 const AUTO_OPEN_KEY = 'launch…Open';
@@ -78,7 +79,11 @@ export default function Home() {
   const [omnibarOpen, setOmnibarOpen] = useState(false);
   const [omnibarQuery, setOmnibarQuery] = useState('');
 
-  // Nastavení kořene projektů (ozubené kolečko)
+  // UI language
+  const [lang, setLang] = useState<Lang>('en');
+  const t = useCallback((key: Parameters<typeof translate>[1], ...args: any[]) => translate(lang, key, ...args), [lang]);
+
+  // Projects root setting (gear icon)
   const [root, setRoot] = useState<string>('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInput, setSettingsInput] = useState('');
@@ -102,6 +107,7 @@ export default function Home() {
       if (stored !== null) setAutoOpen(stored === 'true');
       const storedRoot = localStorage.getItem(ROOT_KEY);
       if (storedRoot) setRoot(storedRoot);
+      setLang(detectLang());
     } catch {}
   }, []);
 
@@ -116,7 +122,7 @@ export default function Home() {
       setData(await res.json());
       setError(null);
     } catch (e: any) {
-      setError(e.message || 'Nepodařilo se načíst aplikace');
+      setError(e.message || t('error') + ': ' + t('loading'));
     } finally {
       setLoading(false);
     }
@@ -164,14 +170,14 @@ export default function Home() {
           if (logPaused) return;
           setLogEntries((prev) => {
             const next = [...prev, { id: ++logIdCounter.current, line: msg.line, level: detectLevel(msg.line), ts: Date.now() }];
-            return next.slice(-500); // držíme posledních 500 řádků v UI
+            return next.slice(-500); // keep last 500 lines in UI
           });
         }
       } catch {}
     };
 
     es.onerror = () => {
-      // Auto-reconnectuje se automaticky, pokud server vrací 200. Pokud 403/404, EventSource se zastaví.
+      // Auto-reconnects automatically if the server returns 200. On 403/404, EventSource stops.
     };
 
     return () => {
@@ -180,7 +186,7 @@ export default function Home() {
     };
   }, [logApp?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-scroll log drawer na konec, pokud není pozastaveno
+  // Auto-scroll log drawer to the end, unless paused
   useEffect(() => {
     if (!logPaused && logEndRef.current) {
       logEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -204,7 +210,7 @@ export default function Home() {
   const saveSettings = async () => {
     const value = settingsInput.trim();
     if (!value) {
-      setSettingsError('Zadej cestu k adresáři s projekty.');
+      setSettingsError(t('settingsErrorEmpty'));
       return;
     }
     setSettingsSaving(true);
@@ -226,7 +232,7 @@ export default function Home() {
       setLoading(true);
       load();
     } catch (e: any) {
-      setSettingsError(e.message || 'Nepodařilo se uložit nastavení');
+      setSettingsError(e.message || t('settingsErrorSave'));
     } finally {
       setSettingsSaving(false);
     }
@@ -238,6 +244,14 @@ export default function Home() {
     setSettingsOpen(false);
     setLoading(true);
     load();
+  };
+
+  const toggleLang = () => {
+    setLang((prev) => {
+      const next: Lang = prev === 'en' ? 'cs' : 'en';
+      try { localStorage.setItem(LANG_KEY, next); } catch {}
+      return next;
+    });
   };
 
   const openApp = (app: AppInfo) => {
@@ -259,7 +273,7 @@ export default function Home() {
       }
       setTimeout(load, 1500);
     } catch (e: any) {
-      alert(`Chyba při startu: ${e.message}`);
+      alert(`${t('error')} (start): ${e.message}`);
     } finally {
       setBusy(null);
     }
@@ -286,7 +300,7 @@ export default function Home() {
       }
       setTimeout(load, 2000);
     } catch (e: any) {
-      alert(`Chyba při startu workspace: ${e.message}`);
+      alert(`${t('error')} (workspace): ${e.message}`);
     } finally {
       setBusy(null);
     }
@@ -307,7 +321,7 @@ export default function Home() {
       }
       setTimeout(load, 2000);
     } catch (e: any) {
-      alert(`Chyba při zastavení: ${e.message}`);
+      alert(`${t('error')} (stop): ${e.message}`);
     } finally {
       setBusy(null);
     }
@@ -343,7 +357,7 @@ export default function Home() {
   const runningCount = apps.filter((a) => a.running).length ?? 0;
   const conflictCount = apps.filter((a) => a.portConflict).length ?? 0;
 
-  // Live hledání + filtry
+  // Live search + filters
   const q = searchQuery.trim().toLowerCase();
   const filteredApps = apps
     .filter((a) => activeTag === 'all' || a.tags.includes(activeTag))
@@ -395,27 +409,35 @@ export default function Home() {
       <header>
         <div>
           <h1>🚀 Launchpad</h1>
-          <div className="subtitle">Všechny aplikace na jednom místě — nové se přidají automaticky</div>
+          <div className="subtitle">{t('subtitle')}</div>
         </div>
         <div className="stats">
-          <span className="stat-pill"><b>{data?.count ?? '…'}</b> aplikací</span>
-          <span className="stat-pill"><b style={{ color: 'var(--green)' }}>{runningCount}</b> běží</span>
+          <span className="stat-pill"><b>{data?.count ?? '…'}</b> {t('appsCount')}</span>
+          <span className="stat-pill"><b style={{ color: 'var(--green)' }}>{runningCount}</b> {t('running')}</span>
           {conflictCount > 0 && (
-            <span className="stat-pill"><b style={{ color: 'var(--amber)' }}>{conflictCount}</b> konflikt portu</span>
+            <span className="stat-pill"><b style={{ color: 'var(--amber)' }}>{conflictCount}</b> {t('portConflict')}</span>
           )}
-          <label className="settings-toggle" title="Po spuštění aplikace ji automaticky otevřít v nové kartě">
-            <span className="settings-label">Auto-otevřít</span>
+          <label className="settings-toggle" title={t('autoOpenTitle')}>
+            <span className="settings-label">{t('autoOpen')}</span>
             <input type="checkbox" checked={autoOpen} onChange={toggleAutoOpen} />
             <span className="toggle-track"><span className="toggle-thumb" /></span>
           </label>
-          <button className="btn" onClick={load} style={{ flex: 'none', padding: '0.4rem 0.9rem' }}>↻ Obnovit</button>
+          <button className="btn" onClick={load} style={{ flex: 'none', padding: '0.4rem 0.9rem' }}>{t('refresh')}</button>
           <button
             className="btn settings-gear"
             onClick={openSettings}
-            title="Nastavení — cesta k projektům"
-            aria-label="Nastavení"
+            title={t('settings')}
+            aria-label={t('settings')}
           >
             ⚙️
+          </button>
+          <button
+            className="btn lang-toggle"
+            onClick={toggleLang}
+            title={lang === 'en' ? 'Česky' : 'English'}
+            aria-label={lang === 'en' ? 'Česky' : 'English'}
+          >
+            {lang === 'en' ? '🇨🇿' : '🇬🇧'}
           </button>
         </div>
       </header>
@@ -427,7 +449,7 @@ export default function Home() {
           <input
             type="text"
             className="search-input"
-            placeholder="Hledat projekt… (název, adresář, tag)"
+            placeholder={t('searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -435,7 +457,7 @@ export default function Home() {
             <button className="search-clear" onClick={() => setSearchQuery('')} title="Vymazat">✕</button>
           )}
         </div>
-        <div className="result-count" title="Počet aplikací odpovídajících aktuálním filtrům">
+        <div className="result-count" title={t('resultCountTitle')}>
           <b>{filteredApps.length}</b> z {apps.length}
         </div>
         <div className="search-filters">
@@ -445,7 +467,7 @@ export default function Home() {
             onChange={(e) => setFrameworkFilter(e.target.value as any)}
             title="Filtr podle frameworku"
           >
-            <option value="all">Framework: vše</option>
+            <option value="all">{t('frameworkAll')}</option>
             <option value="next">Next.js</option>
             <option value="vite">Vite</option>
             <option value="other">Other</option>
@@ -456,26 +478,26 @@ export default function Home() {
             onChange={(e) => setStatusFilter(e.target.value as any)}
             title="Filtr podle stavu"
           >
-            <option value="all">Stav: vše</option>
-            <option value="running">Běží</option>
-            <option value="offline">Offline</option>
+            <option value="all">{t('statusAll')}</option>
+            <option value="running">{t('statusRunning')}</option>
+            <option value="offline">{t('statusOffline')}</option>
           </select>
           <select
             className="filter-select"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            title="Řazení"
+            title={t('sortTitle')}
           >
-            <option value="az">A–Z</option>
-            <option value="lastCommit">Poslední commit</option>
-            <option value="createdAt">Datum vytvoření</option>
+            <option value="az">{t('sortAz')}</option>
+            <option value="lastCommit">{t('sortLastCommit')}</option>
+            <option value="createdAt">{t('sortCreatedAt')}</option>
           </select>
         </div>
       </div>
 
       {allTags.length > 0 && (
         <div className="tag-bar">
-          <button className={`tag-chip ${activeTag === 'all' ? 'active' : ''}`} onClick={() => setActiveTag('all')}>Vše</button>
+          <button className={`tag-chip ${activeTag === 'all' ? 'active' : ''}`} onClick={() => setActiveTag('all')}>{t('all')}</button>
           {allTags.map((t) => (
             <button key={t} className={`tag-chip ${activeTag === t ? 'active' : ''}`} onClick={() => setActiveTag(t)}>{t}</button>
           ))}
@@ -484,7 +506,7 @@ export default function Home() {
 
       {workspaceNames.length > 0 && (
         <div className="workspaces">
-          <div className="workspaces-title">⚡ Workspaces</div>
+          <div className="workspaces-title">{t('workspaces')}</div>
           <div className="workspaces-grid">
             {workspaceNames.map((name) => {
               const wApps = workspaceApps(name);
@@ -502,7 +524,7 @@ export default function Home() {
                     onClick={() => startWorkspace(wApps.map((a) => a.dir))}
                     disabled={busy === '__workspace__' || allRunning}
                   >
-                    {allRunning ? 'Vše běží ✓' : busy === '__workspace__' ? 'Spouštím…' : `▶ Spustit (${wApps.length})`}
+                    {allRunning ? t('allRunning') : busy === '__workspace__' ? t('starting') : t('startCount', wApps.length)}
                   </button>
                 </div>
               );
@@ -511,16 +533,16 @@ export default function Home() {
         </div>
       )}
 
-      {loading && <div className="loading">Načítám aplikace…</div>}
-      {error && <div className="error">Chyba: {error}</div>}
+      {loading && <div className="loading">{t('loading')}</div>}
+      {error && <div className="error">{t('error')}: {error}</div>}
 
       {!loading && !error && data && (
         filteredApps.length === 0 ? (
           <div className="empty">
-            <p>Žádné aplikace {activeTag !== 'all' ? `v kategorii "${activeTag}"` : ''} nenalezeny.</p>
+            <p>{t('emptyNoApps', activeTag)}</p>
             <p style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
-              Skenuji <code>{root || '~/projects'}</code> — přidej nový projekt s <code>package.json</code> a objeví se tady.
-              {!root && <> Cestu můžeš změnit v ⚙️ nastavení.</>}
+              {t('emptyScan')} <code>{root || '~/projects'}</code> {t('emptyAddProject')} <code>package.json</code> {t('emptyAppears')}
+              {!root && <> {t('emptyChangePath')}</>}
             </p>
           </div>
         ) : (
@@ -538,10 +560,10 @@ export default function Home() {
                   <span className={`badge ${app.framework}`}>{FRAMEWORK_LABEL[app.framework]}</span>
                 </div>
 
-                <div className="status-row" title={app.running ? (app.healthy === false ? 'Běží, ale neodpovídá na health-check' : 'Běží a naslouchá') : 'Zastaveno'}>
+                <div className="status-row" title={app.running ? (app.healthy === false ? t('statusTitleUnhealthy') : t('statusTitleRunning')) : t('statusTitleStopped')}>
                   <span className={`dot ${app.running ? (app.healthy === false ? 'unhealthy' : 'running') : 'stopped'}`} />
                   <span className={`status-text ${app.running ? (app.healthy === false ? 'unhealthy' : 'running') : 'stopped'}`}>
-                    {app.running ? (app.healthy === false ? 'Nezdravá' : 'Běží') : 'Zastaveno'}
+                    {app.running ? (app.healthy === false ? t('statusRunningUnhealthy') : t('statusRunningHealthy')) : t('statusStopped')}
                   </span>
                   {app.port && <span className="port">:{app.port}</span>}
                 </div>
@@ -549,13 +571,13 @@ export default function Home() {
                 {(app.lastCommit || app.createdAt) && (
                   <div className="card-meta">
                     {app.lastCommit && (
-                      <span className="meta-item" title={`Poslední commit: ${formatDate(app.lastCommit)}`}>
-                        <span className="meta-icon">🕒</span> commit {formatRelativeTime(app.lastCommit)}
+                      <span className="meta-item" title={`${t('sortLastCommit')}: ${formatDate(app.lastCommit, lang)}`}>
+                        <span className="meta-icon">🕒</span> {t('commit')} {formatRelativeTime(app.lastCommit, lang)}
                       </span>
                     )}
                     {app.createdAt && (
-                      <span className="meta-item" title={`Vytvořeno: ${formatDate(app.createdAt)}`}>
-                        <span className="meta-icon">📅</span> {formatRelativeTime(app.createdAt)}
+                      <span className="meta-item" title={`${t('sortCreatedAt')}: ${formatDate(app.createdAt, lang)}`}>
+                        <span className="meta-icon">📅</span> {t('created')} {formatRelativeTime(app.createdAt, lang)}
                       </span>
                     )}
                   </div>
@@ -569,16 +591,16 @@ export default function Home() {
 
                 {app.portConflict && (
                   <div className="conflict-warning">
-                    ⚠️ Port {app.port} je obsazený jinou aplikací — nelze spustit, dokud se neuvolní.
+                    {t('portConflictWarning', app.port)}
                   </div>
                 )}
 
                 <div className="card-actions">
                   {app.running && app.url ? (
                     <>
-                      <a className="btn primary" href={app.url} target="_blank" rel="noopener noreferrer">Otevřít ↗</a>
-                      <button className="btn" onClick={() => openLogs(app)} title="Zobrazit logy">⎇ Log</button>
-                      <button className="btn danger" onClick={() => killApp(app)} disabled={busy === app.id} title="Zastavit aplikaci">
+                      <a className="btn primary" href={app.url} target="_blank" rel="noopener noreferrer">{t('open')}</a>
+                      <button className="btn" onClick={() => openLogs(app)} title={t('logsTitle')}>{t('logs')}</button>
+                      <button className="btn danger" onClick={() => killApp(app)} disabled={busy === app.id} title={t('stopTitle')}>
                         {busy === app.id ? '…' : '✕'}
                       </button>
                     </>
@@ -587,9 +609,9 @@ export default function Home() {
                       className="btn primary"
                       onClick={() => startApp(app)}
                       disabled={busy === app.id || app.portConflict}
-                      title={app.portConflict ? 'Port je obsazený' : 'Spustit aplikaci'}
+                      title={app.portConflict ? t('portBusyTitle') : t('startTitle')}
                     >
-                      {busy === app.id ? 'Spouštím…' : '▶ Spustit'}
+                      {busy === app.id ? t('startingBtn') : t('start')}
                     </button>
                   )}
                 </div>
@@ -601,9 +623,9 @@ export default function Home() {
 
       <div className="footer">
         <p>
-          Auto-discovery: skenuje <code>{root || '~/projects'}</code> · nové aplikace se přidají samy.
+          {t('footerScan')} <code>{root || '~/projects'}</code> {t('footerAdd')}
           <br />
-          <kbd>Ctrl</kbd>+<kbd>K</kbd> — rychlé hledání · Běh: <code>npm run dev</code> · port 3005 · ⚙️ pro změnu cesty
+          <kbd>Ctrl</kbd>+<kbd>K</kbd> {t('footerShortcuts')} <code>npm run dev</code> · port 3005 {t('footerSettings')}
         </p>
       </div>
 
@@ -616,7 +638,7 @@ export default function Home() {
                 ref={omnibarRef}
                 value={omnibarQuery}
                 onChange={(e) => setOmnibarQuery(e.target.value)}
-                placeholder="Hledat aplikaci… (Enter = spustit)"
+                placeholder={t('omnibarPlaceholder')}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && omnibarResults.length > 0) {
                     const app = omnibarResults[0];
@@ -631,7 +653,7 @@ export default function Home() {
             </div>
             <div className="omnibar-results">
               {omnibarResults.length === 0 ? (
-                <div className="omnibar-empty">Žádné výsledky</div>
+                <div className="omnibar-empty">{t('omnibarEmpty')}</div>
               ) : (
                 omnibarResults.map((app) => (
                   <button
@@ -660,33 +682,33 @@ export default function Home() {
         <div className="settings-overlay" onClick={() => setSettingsOpen(false)}>
           <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
             <div className="settings-modal-header">
-              <h2>⚙️ Nastavení</h2>
+              <h2>{t('settingsTitle')}</h2>
               <button className="btn" onClick={() => setSettingsOpen(false)} style={{ flex: 'none', padding: '0.3rem 0.8rem' }}>✕</button>
             </div>
             <div className="settings-modal-body">
-              <label className="settings-field-label" htmlFor="settings-root">Cesta k projektům</label>
+              <label className="settings-field-label" htmlFor="settings-root">{t('settingsPathLabel')}</label>
               <input
                 id="settings-root"
                 type="text"
                 className="settings-input"
                 value={settingsInput}
                 onChange={(e) => setSettingsInput(e.target.value)}
-                placeholder="např. /Users/ja/projects"
+                placeholder={t('settingsPlaceholder')}
                 onKeyDown={(e) => { if (e.key === 'Enter') saveSettings(); }}
                 autoFocus
               />
               <p className="settings-hint">
-                Launchpad skenuje tento adresář a automaticky najde všechny aplikace s <code>package.json</code>.
-                {root && <span> Aktuálně: <code>{root}</code></span>}
+                {t('settingsHint')} <code>package.json</code>.
+                {root && <span> {t('settingsCurrent')} <code>{root}</code></span>}
               </p>
               {settingsError && <div className="settings-error">⚠️ {settingsError}</div>}
             </div>
             <div className="settings-modal-footer">
-              <button className="btn" onClick={resetSettings} style={{ flex: 'none' }}>↺ Výchozí</button>
+              <button className="btn" onClick={resetSettings} style={{ flex: 'none' }}>{t('settingsReset')}</button>
               <div style={{ flex: 1 }} />
-              <button className="btn" onClick={() => setSettingsOpen(false)} style={{ flex: 'none' }}>Zrušit</button>
+              <button className="btn" onClick={() => setSettingsOpen(false)} style={{ flex: 'none' }}>{t('settingsCancel')}</button>
               <button className="btn primary" onClick={saveSettings} disabled={settingsSaving} style={{ flex: 'none' }}>
-                {settingsSaving ? 'Ukládám…' : 'Uložit'}
+                {settingsSaving ? t('settingsSaving') : t('settingsSave')}
               </button>
             </div>
           </div>
@@ -698,16 +720,16 @@ export default function Home() {
           <div className="log-drawer-header">
             <div className="log-drawer-title">
               <span className="log-drawer-dot" />
-              Logy: <b>{logApp.name}</b>
+              {t('logsTitle')} <b>{logApp.name}</b>
               <span className="log-drawer-dir">{logApp.dir}</span>
             </div>
             <div className="log-drawer-actions">
               <button className={`btn ${logPaused ? 'primary' : ''}`} onClick={() => setLogPaused((p) => !p)} style={{ flex: 'none', padding: '0.3rem 0.8rem' }}>
-                {logPaused ? '▶ Pustit' : '⏸ Pauza'}
+                {logPaused ? t('resume') : t('pause')}
               </button>
-              <button className="btn" onClick={downloadLogs} style={{ flex: 'none', padding: '0.3rem 0.8rem' }}>⤓ Stáhnout</button>
-              <button className="btn danger" onClick={clearLogs} style={{ flex: 'none', padding: '0.3rem 0.8rem' }}>🗑 Vymazat</button>
-              <button className="btn" onClick={() => setLogApp(null)} style={{ flex: 'none', padding: '0.3rem 0.8rem' }}>✕ Zavřít</button>
+              <button className="btn" onClick={downloadLogs} style={{ flex: 'none', padding: '0.3rem 0.8rem' }}>{t('download')}</button>
+              <button className="btn danger" onClick={clearLogs} style={{ flex: 'none', padding: '0.3rem 0.8rem' }}>{t('clear')}</button>
+              <button className="btn" onClick={() => setLogApp(null)} style={{ flex: 'none', padding: '0.3rem 0.8rem' }}>{t('close')}</button>
             </div>
           </div>
 
@@ -718,14 +740,14 @@ export default function Home() {
                 className={`log-filter-chip ${logFilter === lvl ? 'active' : ''} log-filter-${lvl}`}
                 onClick={() => setLogFilter(lvl)}
               >
-                {lvl === 'all' ? 'Vše' : lvl.toUpperCase()} {logCounts[lvl] > 0 && <span className="log-filter-count">{logCounts[lvl]}</span>}
+                {lvl === 'all' ? t('logFilterAll') : lvl.toUpperCase()} {logCounts[lvl] > 0 && <span className="log-filter-count">{logCounts[lvl]}</span>}
               </button>
             ))}
           </div>
 
           <div className="log-drawer-body">
             {filteredLogEntries.length === 0 ? (
-              <div className="log-empty">Zatím žádné logy. Spusť aplikaci a výstup se objeví tady.</div>
+              <div className="log-empty">{t('logEmpty')}</div>
             ) : (
               filteredLogEntries.map((entry) => (
                 <div key={entry.id} className={`log-line ${levelClass(entry.level)}`}>{entry.line}</div>

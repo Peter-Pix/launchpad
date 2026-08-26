@@ -427,3 +427,8 @@ h1 {
   display: flex; align-items: center; gap: 0.5rem;
   padding: 1rem 1.25rem; border-top: 1px solid var(--border);
 }
+
+/* ===== Jazyk toggle ===== */
+.lang-toggle {
+  flex: none; padding: 0.4rem 0.7rem; font-size: 1rem; line-height: 1;
+}
