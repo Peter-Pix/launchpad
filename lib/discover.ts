@@ -24,19 +24,17 @@ export interface AppInfo {
   createdAt: number | null;   // unix timestamp prvního commitu
 }
 
-const PROJECTS_ROOT = process.env.LAUNCHPAD_ROOT || join(process.env.HOME || '', 'projects');
-
 /** Získá seznam běžících dev procesů JEDNÍM voláním ps aux. */
-function getRunningDirs(): Set<string> {
+function getRunningDirs(root: string): Set<string> {
   const running = new Set<string>();
   try {
     const out = execSync(
       `ps aux | grep -iE "next|vite|node|tsx" | grep -v grep`,
       { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 10 * 1024 * 1024 }
     );
-    const root = PROJECTS_ROOT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     for (const line of out.split('\n')) {
-      const m = line.match(new RegExp(`${root}/([^/\\s]+)`));
+      const m = line.match(new RegExp(`${escaped}/([^/\\s]+)`));
       if (m) running.add(m[1]);
     }
   } catch {}
@@ -95,15 +93,15 @@ function normalizeExpected(expected: unknown): number[] {
   return [];
 }
 
-export function discoverApps(): AppInfo[] {
-  if (!existsSync(PROJECTS_ROOT)) return [];
+export function discoverApps(root: string): AppInfo[] {
+  if (!existsSync(root)) return [];
 
-  const runningDirs = getRunningDirs();
+  const runningDirs = getRunningDirs(root);
   const busyPorts = getBusyPorts();
 
   const apps: AppInfo[] = [];
-  for (const dir of readdirSync(PROJECTS_ROOT)) {
-    const full = join(PROJECTS_ROOT, dir);
+  for (const dir of readdirSync(root)) {
+    const full = join(root, dir);
     const pkgPath = join(full, 'package.json');
     if (!existsSync(pkgPath)) continue;
 

@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server';
 import { existsSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
+import { resolveRoot } from '@/lib/root';
 
 export const dynamic = 'force-dynamic';
-
-const PROJECTS_ROOT = process.env.LAUNCHPAD_ROOT || join(process.env.HOME || '', 'projects');
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const dir = searchParams.get('dir');
   if (!dir) return NextResponse.json({ error: 'Chybí dir' }, { status: 400 });
 
-  const logPath = join(PROJECTS_ROOT, dir, '.launchpad.log');
+  const root = resolveRoot(req);
+  const logPath = join(root, dir, '.launchpad.log');
   if (!existsSync(logPath)) {
     return NextResponse.json({ error: 'Žádný log' }, { status: 404 });
   }

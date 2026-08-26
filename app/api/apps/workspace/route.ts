@@ -4,10 +4,9 @@ import { existsSync, openSync } from 'fs';
 import { join } from 'path';
 import { discoverApps } from '@/lib/discover';
 import { assertLocalhost } from '@/lib/guard';
+import { resolveRoot } from '@/lib/root';
 
 export const dynamic = 'force-dynamic';
-
-const PROJECTS_ROOT = process.env.LAUNCHPAD_ROOT || join(process.env.HOME || '', 'projects');
 
 export async function POST(req: Request) {
   const guard = assertLocalhost(req);
@@ -21,11 +20,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Chybí dirs' }, { status: 400 });
   }
 
-  const apps = discoverApps();
+  const root = resolveRoot(req);
+  const apps = discoverApps(root);
   const results: Record<string, any> = {};
 
   for (const dir of dirs) {
-    const appPath = join(PROJECTS_ROOT, dir);
+    const appPath = join(root, dir);
     if (!existsSync(join(appPath, 'package.json'))) {
       results[dir] = { ok: false, error: 'Nenalezen package.json' };
       continue;

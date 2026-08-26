@@ -55,6 +55,7 @@ function formatDate(ts: number | null): string {
 }
 
 const AUTO_OPEN_KEY = 'launch…Open';
+const ROOT_KEY = 'launchpad.root';
 
 interface LogEntry {
   id: number;
@@ -77,6 +78,13 @@ export default function Home() {
   const [omnibarOpen, setOmnibarOpen] = useState(false);
   const [omnibarQuery, setOmnibarQuery] = useState('');
 
+  // Nastavení kořene projektů (ozubené kolečko)
+  const [root, setRoot] = useState<string>('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsInput, setSettingsInput] = useState('');
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+
   // Log drawer state
   const [logApp, setLogApp] = useState<AppInfo | null>(null);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
@@ -92,12 +100,18 @@ export default function Home() {
     try {
       const stored = localStorage.getItem(AUTO_OPEN_KEY);
       if (stored !== null) setAutoOpen(stored === 'true');
+      const storedRoot = localStorage.getItem(ROOT_KEY);
+      if (storedRoot) setRoot(storedRoot);
     } catch {}
   }, []);
 
+  const withRoot = useCallback((path: string) => {
+    return root ? `${path}${path.includes('?') ? '&' : '?'}root=${encodeURIComponent(root)}` : path;
+  }, [root]);
+
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/apps', { cache: 'no-store' });
+      const res = await fetch(withRoot('/api/apps'), { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setData(await res.json());
       setError(null);
@@ -106,7 +120,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [withRoot]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -140,7 +154,7 @@ export default function Home() {
     setLogEntries([]);
     logIdCounter.current = 0;
 
-    const es = new EventSource(`/api/apps/logs/stream?dir=${encodeURIComponent(logApp.dir)}`);
+    const es = new EventSource(withRoot(`/api/apps/logs/stream?dir=${encodeURIComponent(logApp.dir)}`));
     sseRef.current = es;
 
     es.onmessage = (e) => {
@@ -181,6 +195,51 @@ export default function Home() {
     });
   };
 
+  const openSettings = () => {
+    setSettingsInput(root || '');
+    setSettingsError(null);
+    setSettingsOpen(true);
+  };
+
+  const saveSettings = async () => {
+    const value = settingsInput.trim();
+    if (!value) {
+      setSettingsError('Zadej cestu k adresáři s projekty.');
+      return;
+    }
+    setSettingsSaving(true);
+    setSettingsError(null);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ root: value }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSettingsError(j.error || `HTTP ${res.status}`);
+        return;
+      }
+      try { localStorage.setItem(ROOT_KEY, value); } catch {}
+      setRoot(value);
+      setSettingsOpen(false);
+      setLoading(true);
+      load();
+    } catch (e: any) {
+      setSettingsError(e.message || 'Nepodařilo se uložit nastavení');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  const resetSettings = () => {
+    try { localStorage.removeItem(ROOT_KEY); } catch {}
+    setRoot('');
+    setSettingsOpen(false);
+    setLoading(true);
+    load();
+  };
+
   const openApp = (app: AppInfo) => {
     if (app.url) window.open(app.url, '_blank', 'noopener,noreferrer');
   };
@@ -189,7 +248,7 @@ export default function Home() {
     setBusy(app.id);
     if (autoOpen && app.url) openApp(app);
     try {
-      const res = await fetch('/api/apps/start', {
+      const res = await fetch(withRoot('/api/apps/start'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dir: app.dir }),
@@ -209,7 +268,7 @@ export default function Home() {
   const startWorkspace = async (dirs: string[]) => {
     setBusy('__workspace__');
     try {
-      const res = await fetch('/api/apps/workspace', {
+      const res = await fetch(withRoot('/api/apps/workspace'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dirs }),
@@ -237,7 +296,7 @@ export default function Home() {
     if (!confirm(`Zastavit aplikaci "${app.name}"?`)) return;
     setBusy(app.id);
     try {
-      const res = await fetch('/api/apps/kill', {
+      const res = await fetch(withRoot('/api/apps/kill'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dir: app.dir }),
@@ -264,7 +323,7 @@ export default function Home() {
   const clearLogs = async () => {
     if (!logApp) return;
     try {
-      const res = await fetch('/api/apps/logs/clear', {
+      const res = await fetch(withRoot('/api/apps/logs/clear'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dir: logApp.dir }),
@@ -275,7 +334,7 @@ export default function Home() {
 
   const downloadLogs = () => {
     if (!logApp) return;
-    window.open(`/api/apps/logs/download?dir=${encodeURIComponent(logApp.dir)}`, '_blank');
+    window.open(withRoot(`/api/apps/logs/download?dir=${encodeURIComponent(logApp.dir)}`), '_blank');
   };
 
   // Derived data
@@ -350,6 +409,14 @@ export default function Home() {
             <span className="toggle-track"><span className="toggle-thumb" /></span>
           </label>
           <button className="btn" onClick={load} style={{ flex: 'none', padding: '0.4rem 0.9rem' }}>↻ Obnovit</button>
+          <button
+            className="btn settings-gear"
+            onClick={openSettings}
+            title="Nastavení — cesta k projektům"
+            aria-label="Nastavení"
+          >
+            ⚙️
+          </button>
         </div>
       </header>
 
@@ -452,7 +519,8 @@ export default function Home() {
           <div className="empty">
             <p>Žádné aplikace {activeTag !== 'all' ? `v kategorii "${activeTag}"` : ''} nenalezeny.</p>
             <p style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
-              Skenuji <code>~/projects/*</code> — přidej nový projekt s <code>package.json</code> a objeví se tady.
+              Skenuji <code>{root || '~/projects'}</code> — přidej nový projekt s <code>package.json</code> a objeví se tady.
+              {!root && <> Cestu můžeš změnit v ⚙️ nastavení.</>}
             </p>
           </div>
         ) : (
@@ -533,9 +601,9 @@ export default function Home() {
 
       <div className="footer">
         <p>
-          Auto-discovery: skenuje <code>~/projects/*</code> · nové aplikace se přidají samy.
+          Auto-discovery: skenuje <code>{root || '~/projects'}</code> · nové aplikace se přidají samy.
           <br />
-          <kbd>Ctrl</kbd>+<kbd>K</kbd> — rychlé hledání · Běh: <code>npm run dev</code> · port 3005
+          <kbd>Ctrl</kbd>+<kbd>K</kbd> — rychlé hledání · Běh: <code>npm run dev</code> · port 3005 · ⚙️ pro změnu cesty
         </p>
       </div>
 
@@ -583,6 +651,43 @@ export default function Home() {
                   </button>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {settingsOpen && (
+        <div className="settings-overlay" onClick={() => setSettingsOpen(false)}>
+          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="settings-modal-header">
+              <h2>⚙️ Nastavení</h2>
+              <button className="btn" onClick={() => setSettingsOpen(false)} style={{ flex: 'none', padding: '0.3rem 0.8rem' }}>✕</button>
+            </div>
+            <div className="settings-modal-body">
+              <label className="settings-field-label" htmlFor="settings-root">Cesta k projektům</label>
+              <input
+                id="settings-root"
+                type="text"
+                className="settings-input"
+                value={settingsInput}
+                onChange={(e) => setSettingsInput(e.target.value)}
+                placeholder="např. /Users/ja/projects"
+                onKeyDown={(e) => { if (e.key === 'Enter') saveSettings(); }}
+                autoFocus
+              />
+              <p className="settings-hint">
+                Launchpad skenuje tento adresář a automaticky najde všechny aplikace s <code>package.json</code>.
+                {root && <span> Aktuálně: <code>{root}</code></span>}
+              </p>
+              {settingsError && <div className="settings-error">⚠️ {settingsError}</div>}
+            </div>
+            <div className="settings-modal-footer">
+              <button className="btn" onClick={resetSettings} style={{ flex: 'none' }}>↺ Výchozí</button>
+              <div style={{ flex: 1 }} />
+              <button className="btn" onClick={() => setSettingsOpen(false)} style={{ flex: 'none' }}>Zrušit</button>
+              <button className="btn primary" onClick={saveSettings} disabled={settingsSaving} style={{ flex: 'none' }}>
+                {settingsSaving ? 'Ukládám…' : 'Uložit'}
+              </button>
             </div>
           </div>
         </div>

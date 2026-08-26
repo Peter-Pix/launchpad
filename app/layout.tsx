@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Launchpad — Peterovy aplikace',
-  description: 'Centrální rozcestník pro všechny aplikace',
+  title: 'Launchpad — rozcestník aplikací',
+  description: 'Centrální rozcestník pro všechny lokální aplikace. Auto-discovery, status, spuštění jedním klikem.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

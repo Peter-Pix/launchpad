@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { checkAppHealth, getHealthPaths } from '@/lib/discover';
 import { assertLocalhost } from '@/lib/guard';
+import { resolveRoot } from '@/lib/root';
 
 export const dynamic = 'force-dynamic';
 

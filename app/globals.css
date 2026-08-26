@@ -374,3 +374,56 @@ h1 {
   white-space: nowrap; cursor: default;
 }
 .result-count b { color: var(--text); }
+
+/* ===== Nastavení (ozubené kolečko) ===== */
+.settings-gear {
+  flex: none; padding: 0.4rem 0.7rem; font-size: 1rem; line-height: 1;
+}
+.settings-overlay {
+  position: fixed; inset: 0; z-index: 110;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+}
+.settings-modal {
+  width: min(480px, 92vw);
+  background: rgba(20, 20, 28, 0.97); border: 1px solid var(--border);
+  border-radius: 16px; overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+}
+.settings-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+}
+.settings-modal-header h2 { font-size: 1.1rem; font-weight: 700; }
+.settings-modal-body { padding: 1.25rem; }
+.settings-field-label {
+  display: block; font-size: 0.8rem; color: var(--text-dim);
+  margin-bottom: 0.4rem; font-weight: 600;
+}
+.settings-input {
+  width: 100%; padding: 0.6rem 0.8rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; color: var(--text); font-size: 0.9rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  outline: none; transition: border-color 0.15s ease;
+}
+.settings-input::placeholder { color: var(--text-dim); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+.settings-input:focus { border-color: rgba(255,255,255,0.25); }
+.settings-hint {
+  margin-top: 0.6rem; font-size: 0.78rem; color: var(--text-dim); line-height: 1.5;
+}
+.settings-hint code {
+  background: var(--surface-2); border: 1px solid var(--border);
+  padding: 0.05rem 0.35rem; border-radius: 6px; font-size: 0.72rem;
+}
+.settings-error {
+  margin-top: 0.75rem; padding: 0.5rem 0.75rem;
+  background: rgba(224, 85, 85, 0.12); border: 1px solid rgba(224, 85, 85, 0.3);
+  border-radius: 10px; color: var(--red); font-size: 0.8rem;
+}
+.settings-modal-footer {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 1rem 1.25rem; border-top: 1px solid var(--border);
+}

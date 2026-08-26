@@ -1,10 +1,9 @@
 import { join } from 'path';
 import { existsSync, createReadStream } from 'fs';
 import { assertLocalhost } from '@/lib/guard';
+import { resolveRoot } from '@/lib/root';
 
 export const dynamic = 'force-dynamic';
-
-const PROJECTS_ROOT = process.env.LAUNCHPAD_ROOT || join(process.env.HOME || '', 'projects');
 
 export async function GET(req: Request) {
   const guard = assertLocalhost(req);
@@ -14,7 +13,8 @@ export async function GET(req: Request) {
   const dir = searchParams.get('dir');
   if (!dir) return new Response('Chybí dir\n', { status: 400 });
 
-  const logPath = join(PROJECTS_ROOT, dir, '.launchpad.log');
+  const root = resolveRoot(req);
+  const logPath = join(root, dir, '.launchpad.log');
   if (!existsSync(logPath)) {
     return new Response('Log neexistuje\n', { status: 404 });
   }

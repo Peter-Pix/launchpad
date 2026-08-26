@@ -2,10 +2,9 @@ import { NextResponse } from 'next/server';
 import { truncateSync, existsSync } from 'fs';
 import { join } from 'path';
 import { assertLocalhost } from '@/lib/guard';
+import { resolveRoot } from '@/lib/root';
 
 export const dynamic = 'force-dynamic';
-
-const PROJECTS_ROOT = process.env.LAUNCHPAD_ROOT || join(process.env.HOME || '', 'projects');
 
 export async function POST(req: Request) {
   const guard = assertLocalhost(req);
@@ -17,7 +16,8 @@ export async function POST(req: Request) {
   const dir = body?.dir;
   if (!dir) return NextResponse.json({ error: 'Chybí dir' }, { status: 400 });
 
-  const logPath = join(PROJECTS_ROOT, dir, '.launchpad.log');
+  const root = resolveRoot(req);
+  const logPath = join(root, dir, '.launchpad.log');
   if (!existsSync(logPath)) {
     return NextResponse.json({ error: 'Log neexistuje' }, { status: 404 });
   }
