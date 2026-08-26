@@ -1,0 +1,315 @@
+# API Reference
+
+Launchpad provides a RESTful API for managing applications, logs, and settings. All endpoints are relative to the base URL and accept an optional `?root=` query parameter to override the default projects path.
+
+## Base URL
+```
+http://localhost:3005
+```
+
+## Applications
+
+### GET `/api/apps`
+Retrieve a list of all discovered applications with their metadata.
+
+#### Query Parameters
+- `root` (string, optional): Override the default projects path
+
+#### Response
+```json
+{
+  "apps": [
+    {
+      "id": "string",           // Unique identifier (directory hash)
+      "name": "string",         // Application name (from package.json or dirname)
+      "dir": "string",          // Absolute path to application directory
+      "framework": "next" | "vite" | "node" | "other", // Detected framework
+      "tags": string[],         // Tags from package.launchpad.tags or keywords
+      "running": boolean,       // Whether the process is currently running
+      "healthy": boolean | null, // Health check status (null if not available)
+      "port": number | null,    // Listening port (if detected)
+      "portConflict": boolean,  // Whether the port is in use by another process
+      "createdAt": number,      // Unix timestamp of directory creation
+      "lastCommit": number | null, // Unix timestamp of last git commit (if applicable)
+      "url": string | null      // Detected URL (from package.launchpad.url or heuristics)
+    }
+  ],
+  "count": number               // Total number of applications
+}
+```
+
+#### Example Response
+```json
+{
+  "apps": [
+    {
+      "id": "a1b2c3d4",
+      "name": "my-nextjs-app",
+      "dir": "/home/user/projects/my-nextjs-app",
+      "framework": "next",
+      "tags": ["web", "frontend"],
+      "running": true,
+      "healthy": true,
+      "port": 3000,
+      "portConflict": false,
+      "createdAt": 1724659200,
+      "lastCommit": 1724659200,
+      "url": "http://localhost:3000"
+    }
+  ],
+  "count": 1
+}
+```
+
+### POST `/api/apps/start`
+Start an application.
+
+#### Request Body
+```json
+{
+  "dir": string   // Absolute path to application directory
+}
+```
+
+#### Response
+- `200 OK` on success
+- `400 Bad Request` if directory is invalid or missing
+- `500 Internal Server Error` if startup fails
+
+### POST `/api/apps/kill`
+Stop a running application.
+
+#### Request Body
+```json
+{
+  "dir": string   // Absolute path to application directory
+}
+```
+
+#### Response
+- `200 OK` on success
+- `400 Bad Request` if directory is invalid
+- `500 Internal Server Error` if stop fails
+
+### GET `/api/apps/workspace`
+Get list of defined workspaces.
+
+#### Response
+```json
+{
+  "workspaces": [
+    {
+      "name": string,           // Workspace name
+      "apps": string[]          // Array of application IDs
+    }
+  ]
+}
+```
+
+#### Example Response
+```json
+{
+  "workspaces": [
+    {
+      "name": "full-stack",
+      "apps": ["a1b2c3d4", "e5f6g7h8"]
+    }
+  ]
+}
+```
+
+### POST `/api/apps/workspace`
+Start all applications in a workspace.
+
+#### Request Body
+```json
+{
+  "name": string   // Workspace name
+}
+```
+
+#### Response
+- `200 OK` on success
+- `400 Bad Request` if workspace not found
+- `500 Internal Server Error` if startup fails
+
+## Logs
+
+### GET `/api/apps/logs`
+Get recent log entries for an application (buffered in memory).
+
+#### Query Parameters
+- `dir` (string, required): URL-encoded absolute path to application directory
+- `limit` (number, optional): Maximum number of lines to return (default 100)
+- `level` (string, optional): Filter by log level (`all`, `info`, `warn`, `error`, `debug`)
+
+#### Response
+```json
+{
+  "logs": [
+    {
+      "id": number,         // Sequential log entry ID
+      "timestamp": number,  // Unix timestamp when log was received
+      "level": "info" | "warn" | "error" | "debug",
+      "line": string        // Log line content
+    }
+  ],
+  "counts": {               // Count of logs by level
+    "info": number,
+    "warn": number,
+    "error": number,
+    "debug": number
+  },
+  "total": number           // Total number of logs in buffer
+}
+```
+
+#### Example Response
+```json
+{
+  "logs": [
+    {
+      "id": 1024,
+      "timestamp": 1724659200,
+      "level": "info",
+      "line": "ready - started server on http://localhost:3000"
+    }
+  ],
+  "counts": {
+    "info": 150,
+    "warn": 5,
+    "error": 2,
+    "debug": 0
+  },
+  "total": 157
+}
+```
+
+### GET `/api/apps/logs/stream`
+Stream live logs for an application via Server-Sent Events (SSE).
+
+#### Query Parameters
+- `dir` (string, required): URL-encoded absolute path to application directory
+
+#### Event Format
+```
+data: {"timestamp":1724659200,"level":"info","line":"ready - started server on http://localhost:3000"}
+
+```
+
+#### Connection
+- Opens an SSE connection that stays open until client closes it
+- Sends new log lines as they are generated by the application process
+- Automatically reconnects on temporary network issues
+- Sends `retry: 3000` to instruct client to wait 3 seconds before reconnecting on error
+
+### POST `/api/apps/logs/clear`
+Clear the log buffer for an application.
+
+#### Request Body
+```json
+{
+  "dir": string   // URL-encoded absolute path to application directory
+}
+```
+
+#### Response
+- `200 OK` on success
+- `400 Bad Request` if directory is invalid
+
+### GET `/api/apps/logs/download`
+Download the log buffer as a plain text file.
+
+#### Query Parameters
+- `dir` (string, required): URL-encoded absolute path to application directory
+
+#### Response
+- `200 OK` with `Content-Type: text/plain`
+- `Content-Disposition: attachment; filename="<app-name>-logs.txt"`
+- `400 Bad Request` if directory is invalid
+
+## Settings
+
+### GET `/api/settings`
+Get the currently configured projects path.
+
+#### Response
+```json
+{
+  "root": string   // Absolute path to projects directory
+}
+```
+
+#### Example Response
+```json
+{
+  "root": "/home/user/projects"
+}
+```
+
+### POST `/api/settings`
+Validate and save a new projects path.
+
+#### Request Body
+```json
+{
+  "value": string   // Proposed new projects path
+}
+```
+
+#### Response
+- `200 OK` with `{ "root": string }` on success
+- `400 Bad Request` if path is invalid (does not exist or not a directory)
+- Response body includes validation error message
+
+#### Example Success Response
+```json
+{
+  "root": "/mnt/development/projects"
+}
+```
+
+#### Example Error Response
+```json
+{
+  "error": "Path does not exist or is not accessible"
+}
+```
+
+## Health Check
+
+### GET `/api/apps/health`
+Simple health check endpoint to verify the API is responsive.
+
+#### Response
+- `200 OK` with `{ "status": "ok" }`
+
+## Error Responses
+
+All error responses follow this format:
+```json
+{
+  "error": "Human-readable error message"
+}
+```
+
+Common HTTP status codes:
+- `200` — Success
+- `400` — Bad Request (invalid input)
+- `404` — Not Found (endpoint or resource not found)
+- `500` — Internal Server Error (unexpected server error)
+
+## Security Notes
+
+- All file system paths are validated to prevent directory traversal attacks
+- The API is intended for **local use only** — do not expose to public networks
+- No authentication is implemented as it assumes trusted local environment
+- Path validation ensures all operations stay within the configured projects root or subdirectories
+
+## Rate Limiting
+
+No rate limiting is currently implemented as the API is designed for infrequent manual/local automated use.
+
+## Versioning
+
+The API version is tied to the Launchpad application version. Breaking changes will be accompanied by a major version bump.

@@ -4,106 +4,136 @@ A central launcher for all your local dev apps. Point it at a folder, and it **a
 
 Built for localhost. Runs entirely on your machine.
 
-![Rocket icon](assets/icon.svg)
+## 📖 Documentation
 
-## ✨ Features
+### Quick Start
+See [QUICK_START.md](QUICK_START.md) for a 30-second setup guide.
 
-- **Auto-discovery** — drop a new project into your projects folder, it appears automatically. No registration.
-- **Live status** — running/stopped, port, framework, health-check, last commit, created date.
-- **One-click start/stop** — `npm run dev` on the background, opens the app in a new tab.
-- **Port conflict detection** — warns and blocks start if the port is taken by another app.
-- **Omnibar** — `Ctrl+K` to search and launch from the keyboard.
-- **Workspaces** — group apps by `launchpad.workspaces` and start them all at once.
-- **Live logs** — bottom drawer with streaming logs, level filters, download & clear.
-- **Configurable projects path** — set your own folder via the ⚙️ gear icon (persisted in your browser).
+### Full Documentation
+Comprehensive documentation is available in both English and Czech:
 
-## 🚀 Quick start
+- **English**: [`docs/en/`](docs/en/)
+  - [User Guide](docs/en/user-guide.md) — How to use Launchpad
+  - [Contributor Guide](docs/en/contributing.md) — How to develop/contribute
+  - [API Reference](docs/en/api-reference.md) — Technical API details
+  - [Architecture](docs/en/architecture.md) — System design overview
+  - [Development Workflow](docs/en/development.md) — Setup and best practices
+  - [Cheat Sheet](docs/en/cheat-sheet.md) — Quick reference
+
+- **Czech**: [`docs/cs/`](docs/cs/)
+  - [Uživatelská příručka](docs/cs/user-guide.md) — Jak používat Launchpad
+  - [Průvodce přispěvatele](docs/cs/contributing.md) — Jak vyvíjet/přispívat
+  - [Referenční příručka API](docs/cs/api-reference.md) — Technické detaily API
+  - [Architektura](docs/cs/architecture.md) — Přehled návrhu systému
+  - [Postup vývoje](docs/cs/development.md) — Nastavení a nejlepší praktiky
+  - [Cheat Sheet](docs/cs/cheat-sheet.md) — Rychlá referencia
+
+### README Languages
+- [`README.md`](README.md) — This file (English)
+- [`README.cs.md`](README.cs.md) — Czech version
+
+## 🚀 Quick Start
 
 ```bash
-git clone git@github.com:Peter-Pix/launchpad.git
+# Clone the repo
+git clone https://github.com/Peter-Pix/launchpad.git
 cd launchpad
+
+# Install dependencies
 npm install
-npm run dev   # → http://localhost:3005
+
+# Run it
+npm run dev
 ```
 
-Open http://localhost:3005. Launchpad scans your projects folder and shows everything.
+Open [http://localhost:3005](http://localhost:3005) — Launchpad will auto-scan your `~/projects` folder (or change it via ⚙️ settings).
 
-> **Tip:** double-click `Launchpad.app` / `Launchpad.command` on your Desktop to start the server and open the browser in one step.
+## 🔑 Features
 
-## ⚙️ Setting your projects path
+### Auto-discovery
+- Scans chosen directory (default `~/projects`)
+- Finds every project with `package.json` containing a `dev` script
+- Automatically detects new projects — no manual registration
 
-By default Launchpad scans `~/projects`. To point it elsewhere:
+### State & Control
+- See app state: running, stopped, port conflict
+- One-click start (`npm run dev`) or stop
+- Shows port usage and warns on conflicts
 
-1. Click the **⚙️ gear icon** in the top-right corner.
-2. Enter the absolute path to your projects folder (e.g. `/Users/you/code`).
-3. Click **Save**.
+### Live Logs
+- Stream stdout/stderr in real time
+- Color-coded log levels (info, warn, error, debug)
+- Pause, download, clear logs
+- Source maps (when available)
 
-The path is stored in your browser (`localStorage`) and sent with every request. You can also set it once via the `LAUNCHPAD_ROOT` environment variable — the UI setting takes precedence.
+### Workspaces
+- Define groups of apps to start/stop together
+- Launch/stop entire workspaces with one click
+- Save custom workspaces for different workflows
 
-## 🧩 Per-app config
+### Configurable Projects Path
+- Click ⚙️ gear icon in top-right
+- Set custom path to projects folder (e.g., `/mnt/code`, `/workspaces`)
+- Saved to `localStorage` — remembers between sessions
+- Fallback: `LAUNCHPAD_ROOT` env → `~/projects`
 
-Add a `launchpad` block to any project's `package.json` to customize how it appears:
+### Search & Filters (Ctrl+K)
+- Instant filtering by:
+  - Framework (Next.js, Vite, Node, other)
+  - State (running, stopped, offline)
+  - Tags (add `tags` to `package.json`)
+  - Text search (name, directory, tags)
+- Sorting: A–Z, last commit, created date
 
-```json
-{
-  "name": "my-app",
-  "scripts": { "dev": "next dev -p 8888" },
-  "launchpad": {
-    "icon": "🎵",
-    "port": 8888,
-    "tags": ["music", "production"],
-    "workspaces": ["AI Suite"],
-    "healthPath": "/api/health",
-    "healthExpected": [200, 401]
-  }
-}
+### Keyboard Shortcuts
+- `Ctrl+K` — Focus search
+- `Esc` — Close search/settings/logs
+- `Enter` in omnibar — Start selected app
+
+### Settings (⚙️)
+- **Projects path** — Where Launchpad looks for apps
+- **Auto-open** — Automatically open app in browser after start
+- **Language UI** — English/Czech toggle (next to gear icon)
+
+## 🛠️ Development
+
+See [CONTRIBUTING.en.md](docs/en/contributing.md) for detailed contributor guide.
+
+### Architecture
+- **Next.js 16** (App Router) — React 19, TypeScript
+- **Backend API routes** — `/api/apps/*` for app management
+- **Server-Sent Events** — Live log streaming
+- **Local storage** — `localStorage` for settings and language
+- **Zero external DB deps** — All runs in Node.js processes
+
+### Code Structure
+```
+launchpad/
+├── app/                 # Next.js app router
+│   ├── api/             # API route handlers
+│   ├── layout.tsx       # Root layout
+│   └── page.tsx         # Main UI
+├── lib/                 # Shared utilities
+│   ├── discover.ts      # Auto-discovery
+│   ├── i18n.ts          # Internationalization (EN/CZ)
+│   ├── log-level.ts     # Log level detection
+│   └── root.ts          # Root path configuration
+├── public/              # Static assets
+└── styles/              # Global CSS
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `icon` | string | Emoji or URL shown on the card |
-| `port` | number | Override the port (else parsed from the dev script) |
-| `tags` | string[] | Filter chips |
-| `workspaces` | string[] | Group apps to start together |
-| `healthPath` | string | Custom health-check path |
-| `healthExpected` | number[] | HTTP codes that count as healthy |
+## 📝 Conventional Commits
 
-## 🔒 Security
-
-**Launchpad is designed for localhost use only.** Every state-changing action (start, stop, clear logs, launch workspace) is guarded — the API only accepts requests from `127.0.0.1` / `::1` / `localhost`.
-
-**Do not run Launchpad on a public server.** It can execute arbitrary code in your projects folder. Keep it local.
-
-## 🗂 Project structure
-
-```
-app/
-  page.tsx                    # UI grid, omnibar, log drawer, settings
-  api/apps/route.ts           # GET — list apps
-  api/apps/start/route.ts     # POST — start an app
-  api/apps/kill/route.ts      # POST — stop an app
-  api/apps/workspace/route.ts # POST — start a workspace
-  api/apps/logs/…             # stream / clear / download logs
-  api/apps/health/route.ts    # GET — health-check
-  api/settings/route.ts       # GET/POST — validate projects path
-lib/
-  discover.ts                 # auto-discovery + health-check
-  root.ts                     # resolve projects root (env / UI setting)
-  guard.ts                    # localhost protection
-  log-level.ts                # log line level detection
-```
-
-## 🛠 Tech
-
-- **Next.js 16** (App Router) + **React 19** + **TypeScript**
-- Server-side discovery via `fs` + `ps`/`lsof`
-- SSE for live log streaming
-- No database, no external services — everything is local
+We use [Conventional Commits](https://www.conventionalcommits.org/):
+- `feat:` — New feature
+- `fix:` — Bug fix
+- `docs:` — Documentation
+- `refactor:` — Code refactor
+- `test:` — Tests
+- `chore:` — Maintenance
 
 ## 📄 License
 
-MIT — use it, fork it, ship it.
+MIT — see [LICENSE](LICENSE) file.
 
----
-
-Made for developers who keep a folder full of side projects and want them all one click away.
+© 2026 Peter Piskáček
